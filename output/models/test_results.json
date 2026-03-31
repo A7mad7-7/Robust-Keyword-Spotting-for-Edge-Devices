@@ -1,0 +1,7 @@
+{
+  "clean_test_loss": 0.19232739508152008,
+  "clean_test_accuracy": 0.9418224096298218,
+  "noisy_test_loss": 0.2580646872520447,
+  "noisy_test_accuracy": 0.9212616682052612,
+  "robustness_gap": 0.020560741424560547
+}

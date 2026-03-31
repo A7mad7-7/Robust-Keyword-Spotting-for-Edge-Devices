@@ -51,16 +51,17 @@ LABEL_TO_IDX = {label: idx for idx, label in enumerate(TARGET_KEYWORDS + [UNKNOW
 IDX_TO_LABEL = {idx: label for label, idx in LABEL_TO_IDX.items()}
 NUM_CLASSES = len(LABEL_TO_IDX)
 
-# Model / Training
-MODELS_DIR = os.path.join(DATA_DIR, 'models')
+# Output directories
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'output')
+MODELS_DIR = os.path.join(OUTPUT_DIR, 'models')
 EPOCHS = 50
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 DROPOUT_RATE_1 = 0.5
 DROPOUT_RATE_2 = 0.25
 LR_PATIENCE = 5
 
 # Evaluation / Reporting
-FIGURES_DIR = os.path.join(PROJECT_ROOT, 'reports', 'figures')
+FIGURES_DIR = os.path.join(OUTPUT_DIR, 'figures')
 LR_FACTOR = 0.5
 EARLY_STOP_PATIENCE = 10

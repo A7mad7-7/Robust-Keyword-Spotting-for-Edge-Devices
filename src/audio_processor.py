@@ -74,7 +74,8 @@ class AudioProcessor:
         self.scaler_std = None
         
         # Calculate expected feature shape
-        n_frames = 1 + (audio_length - n_fft) // hop_length
+        # librosa uses center=True by default, padding signal by n_fft//2 on each side
+        n_frames = 1 + audio_length // hop_length
         self.feature_shape = (n_mels, n_frames)
         
         np.random.seed(RANDOM_SEED)

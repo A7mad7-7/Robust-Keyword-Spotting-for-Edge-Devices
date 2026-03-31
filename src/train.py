@@ -106,6 +106,7 @@ def train(epochs=EPOCHS, batch_size=BATCH_SIZE, lr=LEARNING_RATE, test_mode=Fals
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor="val_noisy_loss",
+        mode="min",
         factor=LR_FACTOR,
         patience=LR_PATIENCE,
         min_lr=1e-6,

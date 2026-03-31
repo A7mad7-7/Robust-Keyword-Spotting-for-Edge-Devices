@@ -19,5 +19,10 @@ In a real-world Edge scenario, the microphone is always listening. To prevent fa
 - **`Unknown` Class:** Added to train the model to aggressively reject out-of-vocabulary words rather than forcing them into a known keyword category.
 - **`Silence` Class:** Trained explicitly on background noise segments to teach the model to ignore ambient sounds when no speech is present.
 
-### 3. Future Roadmap: Edge Deployment 🚀
+### 3. Output Configuration & Artifacts
+The pipeline consolidates all generated assets into a central `output/` directory:
+- **`output/models/`**: Contains the best Keras model (`best_model.keras`) and its Edge-optimized INT8 TFLite counterparts (`best_model_int8.tflite`, etc.). Evaluation JSONs are also stored here.
+- **`output/figures/`**: Contains all evaluation plots, including Confusion Matrices (for true positive vs false positive comparisons, precision/recall visualisations), and accuracy comparisons for both clean vs. noisy datasets.
+
+### 4. Future Roadmap: Edge Deployment 🚀
 The final phase of this project will involve converting the trained TensorFlow model into **TFLite**. I will implement **Post-Training Quantization (PTQ)** to reduce the model size and inference latency, making it deployable on microcontrollers with strict memory limits.

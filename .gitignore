@@ -33,9 +33,9 @@ data/
 *.tfrecord
 *.h5
 *.hdf5
-*.tflite
+#*.tflite
 *.pb
-*.keras
+#*.keras
 *.log
 
 # IDEs

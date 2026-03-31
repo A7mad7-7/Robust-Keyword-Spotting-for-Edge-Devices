@@ -36,10 +36,7 @@ def load_waveforms(file_paths, labels, processor, desc="Loading audio"):
     waveforms = []
     valid_labels = []
     
-    # Use zip for synchronized iteration
-    # Check if labels is None to support inference-only loading if needed later
     if labels is None:
-        # Fallback to just loading files (not used in current pipeline but good practice)
         for path in tqdm(file_paths, desc=desc):
             try:
                 waveform = processor.load_audio(path)
@@ -71,14 +68,6 @@ def prepare_noisy_split(waveforms, noise_waveforms, injection_ratio=NOISE_INJECT
     Create noisy versions of a data split.
     
     Returns both clean and noisy versions with matching indices.
-    
-    Args:
-        waveforms: Array of clean waveforms
-        noise_waveforms: List of full background noise waveforms
-        injection_ratio: Ratio of samples to add noise to
-        
-    Returns:
-        Tuple of (clean_waveforms, noisy_waveforms)
     """
     print(f"  Creating noisy version ({injection_ratio*100:.0f}% with noise)...")
     noisy_waveforms, noise_mask = create_noisy_dataset(
@@ -99,14 +88,6 @@ def prepare_data(data_dir=RAW_DATA_DIR, save_dir=PROCESSED_DIR, test_mode=False)
     4. Augment and balance training set
     5. Extract features
     6. Normalize using training statistics
-    
-    Args:
-        data_dir: Path to raw dataset
-        save_dir: Path to save processed data
-        test_mode: If True, use a small subset for testing
-        
-    Returns:
-        Dictionary with all prepared data arrays
     """
     print("="*60)
     print("KEYWORD SPOTTING DATA PIPELINE")
@@ -257,10 +238,6 @@ def prepare_data(data_dir=RAW_DATA_DIR, save_dir=PROCESSED_DIR, test_mode=False)
 def save_prepared_data(result, save_dir=PROCESSED_DIR):
     """
     Save prepared data arrays to disk.
-    
-    Args:
-        result: Dictionary from prepare_data()
-        save_dir: Directory to save to
     """
     os.makedirs(save_dir, exist_ok=True)
     
@@ -292,12 +269,6 @@ def save_prepared_data(result, save_dir=PROCESSED_DIR):
 def load_prepared_data(load_dir=PROCESSED_DIR):
     """
     Load previously prepared data from disk.
-    
-    Args:
-        load_dir: Directory to load from
-        
-    Returns:
-        Dictionary with all prepared data arrays
     """
     import json
     
@@ -332,17 +303,143 @@ def load_prepared_data(load_dir=PROCESSED_DIR):
 
 if __name__ == "__main__":
     import argparse
-    
-    parser = argparse.ArgumentParser(description="Prepare Keyword Spotting Dataset")
-    parser.add_argument('--test-mode', action='store_true', 
+    import time
+
+    parser = argparse.ArgumentParser(
+        description="Robust Keyword Spotting — Full Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python pipeline.py                     # Run full pipeline (data → train → test → quantize)
+  python pipeline.py --test-mode         # Quick smoke-test with small subset
+  python pipeline.py --skip-data         # Skip data prep, use saved .npy files
+  python pipeline.py --skip-train        # Skip training, use existing model
+  python pipeline.py --skip-quantize     # Skip INT8 quantization
+        """
+    )
+    parser.add_argument('--test-mode', action='store_true',
                         help="Run in test mode with small subset")
-    parser.add_argument('--save', action='store_true',
-                        help="Save prepared data to disk")
+    parser.add_argument('--skip-data', action='store_true',
+                        help="Skip data preparation (use saved .npy files)")
+    parser.add_argument('--skip-train', action='store_true',
+                        help="Skip training (use existing model)")
+    parser.add_argument('--skip-quantize', action='store_true',
+                        help="Skip INT8 quantization")
+    parser.add_argument('--epochs', type=int, default=None,
+                        help="Override number of training epochs")
+    parser.add_argument('--batch-size', type=int, default=None,
+                        help="Override batch size")
+    parser.add_argument('--lr', type=float, default=None,
+                        help="Override learning rate")
     args = parser.parse_args()
-    
-    # Run pipeline
-    result = prepare_data(test_mode=args.test_mode)
-    
-    # Optionally save
-    if args.save:
+
+    from config import MODELS_DIR, EPOCHS, BATCH_SIZE, LEARNING_RATE
+
+    start_time = time.time()
+
+    print("=" * 70)
+    print("  ROBUST KEYWORD SPOTTING FOR EDGE DEVICES — FULL PIPELINE")
+    print("=" * 70)
+
+    # ==================================================================
+    # STEP 1: Data Preparation
+    # ==================================================================
+    print("\n" + "▓" * 70)
+    print("  STEP 1 / 4 — DATA PREPARATION")
+    print("▓" * 70)
+
+    processed_flag = os.path.join(PROCESSED_DIR, "X_train.npy")
+
+    if args.skip_data and os.path.exists(processed_flag):
+        print("  ⏭ Skipping data preparation. Using saved .npy files.")
+    else:
+        result = prepare_data(test_mode=args.test_mode)
         save_prepared_data(result)
+
+    # ==================================================================
+    # STEP 2: Training
+    # ==================================================================
+    print("\n" + "▓" * 70)
+    print("  STEP 2 / 4 — MODEL TRAINING")
+    print("▓" * 70)
+
+    best_model_path = os.path.join(MODELS_DIR, "best_model.keras")
+
+    if args.skip_train and os.path.exists(best_model_path):
+        print(f"  ⏭ Skipping training. Using existing model: {best_model_path}")
+    else:
+        from train import train
+
+        train_kwargs = {}
+        if args.epochs is not None:
+            train_kwargs['epochs'] = args.epochs
+        if args.batch_size is not None:
+            train_kwargs['batch_size'] = args.batch_size
+        if args.lr is not None:
+            train_kwargs['lr'] = args.lr
+        train_kwargs['test_mode'] = args.test_mode
+
+        train(**train_kwargs)
+
+    # ==================================================================
+    # STEP 3: Test Evaluation
+    # ==================================================================
+    print("\n" + "▓" * 70)
+    print("  STEP 3 / 4 — MODEL EVALUATION ON TEST SET")
+    print("▓" * 70)
+
+    if os.path.exists(best_model_path):
+        from test import evaluate_model as test_evaluate
+        test_evaluate(model_path=best_model_path)
+    else:
+        print("  ✗ No trained model found. Skipping evaluation.")
+
+    # ==================================================================
+    # STEP 4: INT8 Quantization
+    # ==================================================================
+    print("\n" + "▓" * 70)
+    print("  STEP 4 / 4 — INT8 QUANTIZATION")
+    print("▓" * 70)
+
+    if args.skip_quantize:
+        print("  ⏭ Skipping quantization.")
+    elif os.path.exists(best_model_path):
+        from quantize import quantize_model, verify_tflite_model
+        from config import N_MELS, N_FFT, HOP_LENGTH, AUDIO_LENGTH
+
+        quantize_model(model_path=best_model_path)
+
+        # Verify the INT8 model
+        n_frames = 1 + AUDIO_LENGTH // HOP_LENGTH
+        input_shape = (N_MELS, n_frames, 1)
+        int8_path = os.path.join(MODELS_DIR, "best_model_int8.tflite")
+        if os.path.exists(int8_path):
+            verify_tflite_model(int8_path, input_shape)
+    else:
+        print("  ✗ No trained model found. Skipping quantization.")
+
+    # ==================================================================
+    # SUMMARY
+    # ==================================================================
+    elapsed = time.time() - start_time
+    minutes = int(elapsed // 60)
+    seconds = int(elapsed % 60)
+
+    print("\n" + "=" * 70)
+    print("  PIPELINE COMPLETE")
+    print("=" * 70)
+    print(f"  Total time: {minutes}m {seconds}s")
+
+    # List output files
+    print("\n  Output files:")
+    from config import FIGURES_DIR
+    for subdir in [MODELS_DIR, FIGURES_DIR, PROCESSED_DIR]:
+        if os.path.isdir(subdir):
+            for f in sorted(os.listdir(subdir)):
+                fpath = os.path.join(subdir, f)
+                if os.path.isfile(fpath):
+                    size_kb = os.path.getsize(fpath) / 1024
+                    print(f"    {f:40s}  {size_kb:>8.1f} KB")
+
+    print("=" * 70)
+
