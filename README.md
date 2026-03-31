@@ -1,8 +1,5 @@
 # Robust Keyword Spotting (KWS) for Edge Devices 🎙️⚙️
 
-> **Status: Work In Progress (WIP) 🚧**
-> *The data pipeline and model architecture have been designed and implemented. Currently in the testing and training phase, to be followed by Edge optimization (Quantization).*
-
 ## Project Overview
 This project aims to build a robust, production-ready Keyword Spotting (KWS) system designed specifically for resource-constrained Edge devices. The focus is not just on accuracy in a quiet room, but on **Real-World Robustness** against background noise and out-of-vocabulary words.
 
